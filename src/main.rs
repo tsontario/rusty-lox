@@ -1,4 +1,5 @@
 use std::env;
+use std::env::args;
 use std::fs;
 use std::io::{self, Write};
 
@@ -24,7 +25,14 @@ fn main() {
 
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
-                panic!("Scanner not implemented");
+                let lexemes: Vec<_> = file_contents.chars().map(|char| {
+                    match char {
+                        '(' => "LEFT PAREN ( null",
+                        ')' => "RIGHT PAREN ) null",
+                        _ => "EOF null"
+                    }
+                }).collect();
+                lexemes.iter().for_each(|l| println!("{}", l));
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
             }
