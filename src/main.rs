@@ -27,8 +27,8 @@ fn main() {
             if !file_contents.is_empty() {
                 let lexemes: Vec<_> = file_contents.chars().map(|char| {
                     match char {
-                        '(' => "LEFT PAREN ( null",
-                        ')' => "RIGHT PAREN ) null",
+                        '(' => "LEFT_PAREN ( null",
+                        ')' => "RIGHT_PAREN ) null",
                         _ => "EOF null"
                     }
                 }).collect();
