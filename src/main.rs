@@ -25,13 +25,15 @@ fn main() {
 
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
-                let lexemes: Vec<_> = file_contents.chars().map(|char| {
+                let mut lexemes = Vec::new();
+                file_contents.chars().for_each(|char| {
                     match char {
-                        '(' => "LEFT_PAREN ( null",
-                        ')' => "RIGHT_PAREN ) null",
-                        _ => "EOF null"
+                        '(' => lexemes.push("LEFT_PAREN ( null"),
+                        ')' => lexemes.push("RIGHT_PAREN ) null"),
+                        _ => {}
                     }
-                }).collect();
+                });
+                lexemes.push("EOF  null");
                 lexemes.iter().for_each(|l| println!("{}", l));
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
