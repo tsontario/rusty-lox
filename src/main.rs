@@ -2,6 +2,40 @@ use std::env;
 use std::env::args;
 use std::fs;
 use std::io::{self, Write};
+use std::collections::HashMap;
+use std::sync::LazyLock;
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+enum Lexeme {
+    LEFT_PAREN,
+    RIGHT_PAREN,
+    LEFT_BRACE,
+    RIGHT_BRACE,
+    EOF,
+}
+
+static TOKENS: LazyLock<HashMap<Lexeme, &'static str>> = LazyLock::new(|| {
+    HashMap::from([
+        (Lexeme::LEFT_PAREN, "("),
+        (Lexeme::RIGHT_PAREN, ")"),
+        (Lexeme::LEFT_BRACE, "{"),
+        (Lexeme::RIGHT_BRACE, "}"),
+        (Lexeme::EOF, ""),
+    ])
+});
+
+impl Lexeme {
+    fn parse(c: &char) -> Option<Lexeme> {
+        match c {
+            '(' => Some(Lexeme::LEFT_PAREN),
+            ')' => Some(Lexeme::RIGHT_PAREN),
+            '{' => Some(Lexeme::LEFT_BRACE),
+            '}' => Some(Lexeme::RIGHT_BRACE),
+            _ => None
+        }
+    }
+}
+
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -26,15 +60,15 @@ fn main() {
             // Uncomment this block to pass the first stage
             if !file_contents.is_empty() {
                 let mut lexemes = Vec::new();
-                file_contents.chars().for_each(|char| {
-                    match char {
-                        '(' => lexemes.push("LEFT_PAREN ( null"),
-                        ')' => lexemes.push("RIGHT_PAREN ) null"),
-                        _ => {}
+                file_contents.chars().for_each(|c| {
+                    if let Some(lexeme) = Lexeme::parse(&c) {
+                        lexemes.push(lexeme);
+                    } else {
+                        // ignore for now (whitespace, etc.)
                     }
                 });
-                lexemes.push("EOF  null");
-                lexemes.iter().for_each(|l| println!("{}", l));
+                lexemes.push(Lexeme::EOF);
+                lexemes.iter().for_each(|l| println!("{:?} {} null", l, TOKENS.get(l).unwrap()));
             } else {
                 println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
             }
