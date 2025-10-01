@@ -1,8 +1,10 @@
 use std::env;
 use std::env::args;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::collections::HashMap;
+use std::fs::File;
+use std::process::exit;
 use std::sync::LazyLock;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
@@ -73,25 +75,27 @@ fn main() {
             // You can use print statements as follows for debugging, they'll be visible when running tests.
             writeln!(io::stderr(), "Logs from your program will appear here!").unwrap();
 
-            let file_contents = fs::read_to_string(filename).unwrap_or_else(|_| {
-                writeln!(io::stderr(), "Failed to read file {}", filename).unwrap();
-                String::new()
-            });
+            let file = File::open(filename).unwrap();
+            let reader = BufReader::new(file);
+            let mut lexemes = Vec::new();
+            let mut has_errors = false;
 
             // Uncomment this block to pass the first stage
-            if !file_contents.is_empty() {
-                let mut lexemes = Vec::new();
-                file_contents.chars().for_each(|c| {
+            for (line_no, line) in reader.lines().enumerate() {
+                line.unwrap().chars().for_each(|c| {
                     if let Some(lexeme) = Lexeme::parse(&c) {
                         lexemes.push(lexeme);
                     } else {
-                        // ignore for now (whitespace, etc.)
+                        has_errors = true;
+                        eprintln!("[line 1] Error: Unexpected character: {}", c);
                     }
                 });
-                lexemes.push(Lexeme::EOF);
-                lexemes.iter().for_each(|l| println!("{:?} {} null", l, TOKENS.get(l).unwrap()));
-            } else {
-                println!("EOF  null"); // Placeholder, replace this line when implementing the scanner
+            }
+            lexemes.push(Lexeme::EOF);
+            lexemes.iter().for_each(|l| println!("{:?} {} null", l, TOKENS.get(l).unwrap()));
+
+            if has_errors {
+                exit(65);
             }
         }
         _ => {
