@@ -11,6 +11,13 @@ enum Lexeme {
     RIGHT_PAREN,
     LEFT_BRACE,
     RIGHT_BRACE,
+    STAR,
+    DOT,
+    COMMA,
+    PLUS,
+    MINUS,
+    SEMICOLON,
+    SLASH,
     EOF,
 }
 
@@ -20,6 +27,13 @@ static TOKENS: LazyLock<HashMap<Lexeme, &'static str>> = LazyLock::new(|| {
         (Lexeme::RIGHT_PAREN, ")"),
         (Lexeme::LEFT_BRACE, "{"),
         (Lexeme::RIGHT_BRACE, "}"),
+        (Lexeme::STAR, "*"),
+        (Lexeme::DOT, "."),
+        (Lexeme::COMMA, ","),
+        (Lexeme::PLUS, "+"),
+        (Lexeme::MINUS, "-"),
+        (Lexeme::SEMICOLON, ";"),
+        (Lexeme::SLASH, "/"),
         (Lexeme::EOF, ""),
     ])
 });
@@ -31,6 +45,13 @@ impl Lexeme {
             ')' => Some(Lexeme::RIGHT_PAREN),
             '{' => Some(Lexeme::LEFT_BRACE),
             '}' => Some(Lexeme::RIGHT_BRACE),
+            '*' => Some(Lexeme::STAR),
+            '.' => Some(Lexeme::DOT),
+            ',' => Some(Lexeme::COMMA),
+            '+' => Some(Lexeme::PLUS),
+            '-' => Some(Lexeme::MINUS),
+            ';' => Some(Lexeme::SEMICOLON),
+            '/' => Some(Lexeme::SLASH),
             _ => None
         }
     }
