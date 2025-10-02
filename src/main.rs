@@ -4,7 +4,7 @@ use std::io::{self, Read, Write};
 use std::collections::HashMap;
 use std::process::exit;
 use std::sync::LazyLock;
-use unicode_segmentation::UnicodeSegmentation;
+use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
 #[derive(Debug, Clone)]
 struct Token {
@@ -150,9 +150,11 @@ impl Scanner {
                     }
                     TokenType::SLASH => {
                         if self.is_compound_token('/') {
-                            while !self.eof() && self.peek() != '\n' {
+                            while !self.eof() && self.peek() != "\n" {
                                 self.current += 1; // Ignore comments
                             }
+                        } else {
+                            self.add_token(lexeme);
                         }
                     }
                     _ => self.add_token(lexeme)
@@ -162,13 +164,13 @@ impl Scanner {
         self.add_token(TokenType::EOF);
     }
 
-    fn advance(&mut self) -> char {
+    fn advance(&mut self) -> &str {
         self.current += 1;
-        self.source.chars().nth(self.current-1).unwrap()
+        self.source.graphemes(true).nth(self.current-1).unwrap()
     }
 
-    fn peek(&self) -> char {
-        self.source.chars().nth(self.current).unwrap()
+    fn peek(&self) -> &str {
+        self.source.graphemes(true).nth(self.current).unwrap()
     }
 
     fn add_token(&mut self, token_type: TokenType) -> () {
@@ -184,7 +186,7 @@ impl Scanner {
                 line: 1,
             }
         } else {
-            let text = self.source.chars().skip(self.start).take(self.current - self.start).collect();
+            let text = self.source.graphemes(true).skip(self.start).take(self.current - self.start).collect();
             Token {
                 token_type: token_type,
                 text: text,
@@ -199,7 +201,7 @@ impl Scanner {
         if self.eof() {
             return false;
         }
-        if self.source.chars().nth(self.current).unwrap() == c {
+        if self.source.graphemes(true).nth(self.current).unwrap() == c.to_string().as_str() {
             self.current += 1;
             true
         } else {
@@ -208,7 +210,7 @@ impl Scanner {
     }
 
     fn eof(&self) -> bool {
-        self.current == self.source.len()
+        self.current == self.source.chars().count()
     }
 }
 
