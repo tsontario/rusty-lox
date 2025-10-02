@@ -35,6 +35,10 @@ enum TokenType {
     EQUAL_EQUAL,
     BANG,
     BANG_EQUAL,
+    LESS,
+    LESS_EQUAL,
+    GREATER,
+    GREATER_EQUAL,
     EOF,
     ERROR
 }
@@ -56,6 +60,10 @@ static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
         (TokenType::EQUAL_EQUAL, "=="),
         (TokenType::BANG, "!"),
         (TokenType::BANG_EQUAL, "!="),
+        (TokenType::LESS, "<"),
+        (TokenType::LESS_EQUAL, "<="),
+        (TokenType::GREATER, ">"),
+        (TokenType::GREATER_EQUAL, ">="),
         (TokenType::EOF, ""),
     ])
 });
@@ -78,6 +86,10 @@ impl TokenType {
             "==" => Some(TokenType::EQUAL_EQUAL),
             "!" => Some(TokenType::BANG),
             "!=" => Some(TokenType::BANG_EQUAL),
+            "<" => Some(TokenType::LESS),
+            "<=" => Some(TokenType::LESS_EQUAL),
+            ">" => Some(TokenType::GREATER),
+            ">=" => Some(TokenType::GREATER_EQUAL),
             "\n" | "\r" | "\r\n" => None,
             "" => Some(TokenType::EOF),
             _ => Some(TokenType::ERROR)
@@ -122,6 +134,20 @@ impl Scanner {
                     TokenType::EQUAL => {
                         if self.is_compound_token('=') {
                             self.add_token(TokenType::EQUAL_EQUAL);
+                        } else {
+                            self.add_token(lexeme);
+                        }
+                    }
+                    TokenType::GREATER => {
+                        if self.is_compound_token('=') {
+                            self.add_token(TokenType::GREATER_EQUAL);
+                        } else {
+                            self.add_token(lexeme);
+                        }
+                    }
+                    TokenType::LESS => {
+                        if self.is_compound_token('=') {
+                            self.add_token(TokenType::LESS_EQUAL);
                         } else {
                             self.add_token(lexeme);
                         }
