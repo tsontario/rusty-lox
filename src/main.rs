@@ -86,7 +86,7 @@ impl TokenType {
             "<=" => Some(TokenType::LESS_EQUAL),
             ">" => Some(TokenType::GREATER),
             ">=" => Some(TokenType::GREATER_EQUAL),
-            "\n" | "\r" | "\r\n" => None,
+            "\n" | "\r" | "\r\n" | "\t" | " " => None,
             "" => Some(TokenType::EOF),
             _ => Some(TokenType::ERROR)
         }
