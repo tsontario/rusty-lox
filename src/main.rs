@@ -1,15 +1,52 @@
+use std::string::String;
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::process::exit;
 use std::sync::LazyLock;
 use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
+
+#[derive(Debug, Clone)]
+enum Literal {
+    String(String),
+    NULL
+}
+
+impl Display for Literal {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Literal::String(s) => write!(f, "{}", s),
+            Literal::NULL => write!(f, "null"),
+        }
+    }
+}
+
+enum ErrorType {
+    UnexpectedCharacter(String),
+    UnterminatedString(String)
+}
+
+impl Display for ErrorType {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrorType::UnexpectedCharacter(c) => write!(f, "Unexpected character: {}", c),
+            ErrorType::UnterminatedString(s) => write!(f, "Unterminated string."),
+        }
+    }
+}
+
+struct Error {
+    error_type: ErrorType,
+    line: usize,
+}
+
 #[derive(Debug, Clone)]
 struct Token {
     token_type: TokenType,
-    literal: String,
+    literal: Option<Literal>,
     text: String, // TODO probably need a different struct for this
     line: usize,
 }
@@ -37,7 +74,8 @@ enum TokenType {
     GREATER_EQUAL,
     EOF,
     LINE_BREAK,
-    ERROR
+    ERROR,
+    STRING
 }
 
 static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
@@ -90,6 +128,7 @@ impl TokenType {
             ">=" => Some(TokenType::GREATER_EQUAL),
             "\r" | "\t" | " " => None,
             "\n" => Some(TokenType::LINE_BREAK),
+            "\"" => Some(TokenType::STRING),
             "" => Some(TokenType::EOF),
             _ => Some(TokenType::ERROR)
         }
@@ -99,6 +138,7 @@ impl TokenType {
 struct Scanner {
     source: String,
     tokens: Vec<Token>,
+    errors: Vec<Error>,
     start: usize,
     current: usize,
     line: usize,
@@ -110,6 +150,7 @@ impl Scanner {
         Scanner {
             source,
             tokens: Vec::new(),
+            errors: Vec::new(),
             start: 0,
             current: 0,
             line: 1,
@@ -125,34 +166,34 @@ impl Scanner {
                 match lexeme {
                     TokenType::BANG => {
                         if self.is_compound_token('=') {
-                            self.add_token(TokenType::BANG_EQUAL);
+                            self.add_token(TokenType::BANG_EQUAL, None);
                         } else {
-                            self.add_token(lexeme);
+                            self.add_token(lexeme, None);
                         }
                     }
                     TokenType::EQUAL => {
                         if self.is_compound_token('=') {
-                            self.add_token(TokenType::EQUAL_EQUAL);
+                            self.add_token(TokenType::EQUAL_EQUAL, None);
                         } else {
-                            self.add_token(lexeme);
+                            self.add_token(lexeme, None);
                         }
                     }
                     TokenType::ERROR => {
-                        self.has_errors = true;
-                        self.add_error();
+                        let unexpected_char = c.to_string();
+                        self.add_error(ErrorType::UnexpectedCharacter(unexpected_char));
                     }
                     TokenType::GREATER => {
                         if self.is_compound_token('=') {
-                            self.add_token(TokenType::GREATER_EQUAL);
+                            self.add_token(TokenType::GREATER_EQUAL, None);
                         } else {
-                            self.add_token(lexeme);
+                            self.add_token(lexeme, None);
                         }
                     }
                     TokenType::LESS => {
                         if self.is_compound_token('=') {
-                            self.add_token(TokenType::LESS_EQUAL);
+                            self.add_token(TokenType::LESS_EQUAL, None);
                         } else {
-                            self.add_token(lexeme);
+                            self.add_token(lexeme, None);
                         }
                     }
                     TokenType::LINE_BREAK => {
@@ -164,16 +205,30 @@ impl Scanner {
                                 self.current += 1; // Ignore comments
                             }
                         } else {
-                            self.add_token(lexeme);
+                            self.add_token(lexeme, None);
                         }
                     }
-                    _ => self.add_token(lexeme)
+                    TokenType::STRING => {
+                        while !self.eof() && self.peek() != "\"" {
+                            self.current += 1;
+                        }
+                        if !self.eof() {
+                            self.current += 1;
+                            self.add_token(lexeme, Some(Literal::String(self.substr(self.start + 1, self.current - 1))));
+                        } else {
+                            self.add_error(ErrorType::UnterminatedString(self.substr(self.start, self.current)));
+                        }
+                    }
+                    _ => self.add_token(lexeme, None)
                 }
             }
         }
-        self.add_token(TokenType::EOF);
+        self.add_token(TokenType::EOF, None);
     }
 
+    fn substr(&self, start: usize, end: usize) -> String {
+        self.source.graphemes(true).skip(start).take(end - start).collect()
+    }
     fn advance(&mut self) -> &str {
         self.current += 1;
         self.source.graphemes(true).nth(self.current-1).unwrap()
@@ -183,22 +238,21 @@ impl Scanner {
         self.source.graphemes(true).nth(self.current).unwrap()
     }
 
-    fn add_error(&mut self) -> () {
-        let token = Token {
-            token_type: TokenType::ERROR,
-            text: self.source.graphemes(true).skip(self.start).take(self.current - self.start).collect(),
-            literal: String::from(""),
+    fn add_error(&mut self, error_type: ErrorType) -> () {
+        self.has_errors = true;
+        let error = Error {
+            error_type,
             line: self.line
         };
-        self.tokens.push(token);
+        self.errors.push(error);
     }
 
-    fn add_token(&mut self, token_type: TokenType) -> () {
+    fn add_token(&mut self, token_type: TokenType, literal: Option<Literal>) -> () {
         let token = if token_type == TokenType::EOF {
             Token {
                 token_type: token_type,
                 text: String::from(""),
-                literal: String::from(""),
+                literal,
                 line: 1,
             }
         } else {
@@ -206,7 +260,7 @@ impl Scanner {
             Token {
                 token_type: token_type,
                 text: text,
-                literal: String::from(""),
+                literal: literal,
                 line: 1,
             }
         };
@@ -249,12 +303,9 @@ fn main() {
             let mut scanner = Scanner::new(fs::read_to_string(filename).unwrap());
             scanner.scan_tokens();
 
-            // TODO FIX THIS
-            let (errors, tokens): (Vec<&Token>, Vec<&Token>) = scanner.tokens.iter().partition(|t| t.token_type == TokenType::ERROR);
-            errors.iter().for_each(|e| eprintln!("[line {}] Error: Unexpected character: {}", e.line, e.text));
-            tokens.iter().for_each(|l| {
-                let text = l.text.as_str();
-                println!("{:?} {} null", TokenType::parse(text).unwrap(), TOKENS.get(&l.token_type).unwrap());
+            scanner.errors.iter().for_each(|e| eprintln!("[line {}] Error: {}", e.line, e.error_type));
+            scanner.tokens.iter().for_each(|l| {
+                println!("{:?} {} {}", l.token_type, l.text.as_str(), l.literal.clone().unwrap_or(Literal::NULL));;
             });
 
             if scanner.has_errors {
