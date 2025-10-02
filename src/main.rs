@@ -1,14 +1,10 @@
 use std::env;
-use std::env::args;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, Read, Write};
 use std::collections::HashMap;
-use std::fs::File;
-use std::ops::Index;
 use std::process::exit;
 use std::sync::LazyLock;
-use anyhow::Result;
-use crate::TokenType::PLUS;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Clone)]
 struct Token {
@@ -152,6 +148,13 @@ impl Scanner {
                             self.add_token(lexeme);
                         }
                     }
+                    TokenType::SLASH => {
+                        if self.is_compound_token('/') {
+                            while !self.eof() && self.peek() != '\n' {
+                                self.current += 1; // Ignore comments
+                            }
+                        }
+                    }
                     _ => self.add_token(lexeme)
                 }
             }
@@ -165,9 +168,6 @@ impl Scanner {
     }
 
     fn peek(&self) -> char {
-        if self.eof() {
-            return '\0';
-        }
         self.source.chars().nth(self.current).unwrap()
     }
 
