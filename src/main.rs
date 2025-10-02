@@ -33,6 +33,8 @@ enum TokenType {
     SLASH,
     EQUAL,
     EQUAL_EQUAL,
+    BANG,
+    BANG_EQUAL,
     EOF,
     ERROR
 }
@@ -52,6 +54,8 @@ static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
         (TokenType::SLASH, "/"),
         (TokenType::EQUAL, "="),
         (TokenType::EQUAL_EQUAL, "=="),
+        (TokenType::BANG, "!"),
+        (TokenType::BANG_EQUAL, "!="),
         (TokenType::EOF, ""),
     ])
 });
@@ -72,6 +76,8 @@ impl TokenType {
             "/" => Some(TokenType::SLASH),
             "=" => Some(TokenType::EQUAL),
             "==" => Some(TokenType::EQUAL_EQUAL),
+            "!" => Some(TokenType::BANG),
+            "!=" => Some(TokenType::BANG_EQUAL),
             "\n" | "\r" | "\r\n" => None,
             "" => Some(TokenType::EOF),
             _ => Some(TokenType::ERROR)
@@ -106,6 +112,13 @@ impl Scanner {
             let c = self.advance();
             if let Some(lexeme) = TokenType::parse(c.to_string().as_str()) {
                 match lexeme {
+                    TokenType::BANG => {
+                        if self.is_compound_token('=') {
+                            self.add_token(TokenType::BANG_EQUAL);
+                        } else {
+                            self.add_token(lexeme);
+                        }
+                    }
                     TokenType::EQUAL => {
                         if self.is_compound_token('=') {
                             self.add_token(TokenType::EQUAL_EQUAL);
