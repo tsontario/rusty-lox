@@ -24,6 +24,7 @@ impl Display for Literal {
     }
 }
 
+#[derive(Debug, Clone)]
 enum ErrorType {
     UnexpectedCharacter(String),
     UnterminatedString(String)
@@ -38,6 +39,7 @@ impl Display for ErrorType {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Error {
     error_type: ErrorType,
     line: usize,
