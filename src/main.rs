@@ -12,6 +12,7 @@ use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 #[derive(Debug, Clone)]
 enum Literal {
     String(String),
+    Number(f64),
     NULL
 }
 
@@ -19,6 +20,7 @@ impl Display for Literal {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Literal::String(s) => write!(f, "{}", s),
+            Literal::Number(n) => write!(f, "{:?}", n),
             Literal::NULL => write!(f, "null"),
         }
     }
@@ -48,8 +50,8 @@ struct Error {
 #[derive(Debug, Clone)]
 struct Token {
     token_type: TokenType,
-    literal: Option<Literal>,
-    text: String, // TODO probably need a different struct for this
+    literal: Option<Literal>, // The value as represented internally
+    text: String, // The value as it appears in the source
     line: usize,
 }
 
@@ -77,7 +79,8 @@ enum TokenType {
     EOF,
     LINE_BREAK,
     ERROR,
-    STRING
+    STRING,
+    NUMBER,
 }
 
 static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
@@ -131,6 +134,7 @@ impl TokenType {
             "\r" | "\t" | " " => None,
             "\n" => Some(TokenType::LINE_BREAK),
             "\"" => Some(TokenType::STRING),
+            "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => Some(TokenType::NUMBER),
             "" => Some(TokenType::EOF),
             _ => Some(TokenType::ERROR)
         }
@@ -220,6 +224,22 @@ impl Scanner {
                         } else {
                             self.add_error(ErrorType::UnterminatedString(self.substr(self.start, self.current)));
                         }
+                    }
+                    TokenType::NUMBER => {
+                        while !self.eof() {
+                            if self.peek().chars().nth(0).unwrap() == '.' {
+                                self.advance();
+                                while !self.eof() && self.peek().chars().nth(0).unwrap().is_digit(10) {
+                                    self.advance();
+                                }
+                                break;
+                            }
+                            if !self.peek().chars().nth(0).unwrap().is_digit(10) {
+                                break;
+                            }
+                            self.advance();
+                        }
+                        self.add_token(lexeme, Some(Literal::Number(self.substr(self.start, self.current).parse::<f64>().unwrap())));
                     }
                     _ => self.add_token(lexeme, None)
                 }
