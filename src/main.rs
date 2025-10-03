@@ -7,12 +7,13 @@ use std::fmt::{Display, Formatter};
 use std::process::exit;
 use std::sync::LazyLock;
 use unicode_segmentation::{Graphemes, UnicodeSegmentation};
-
+use crate::TokenType::PLUS;
 
 #[derive(Debug, Clone)]
 enum Literal {
     String(String),
     Number(f64),
+    Identifier(String),
     NULL
 }
 
@@ -21,6 +22,7 @@ impl Display for Literal {
         match self {
             Literal::String(s) => write!(f, "{}", s),
             Literal::Number(n) => write!(f, "{:?}", n),
+            Literal::Identifier(i) => write!(f, "null"),
             Literal::NULL => write!(f, "null"),
         }
     }
@@ -81,6 +83,8 @@ enum TokenType {
     ERROR,
     STRING,
     NUMBER,
+    IDENTIFIER,
+    WHITESPACE
 }
 
 static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
@@ -111,7 +115,8 @@ static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
 
 impl TokenType {
     fn parse(c: &str) -> Option<TokenType> {
-        match c {
+        // First try and match simple patterns
+        let tt = match c {
             "(" => Some(TokenType::LEFT_PAREN),
             ")" => Some(TokenType::RIGHT_PAREN),
             "{" => Some(TokenType::LEFT_BRACE),
@@ -131,13 +136,22 @@ impl TokenType {
             "<=" => Some(TokenType::LESS_EQUAL),
             ">" => Some(TokenType::GREATER),
             ">=" => Some(TokenType::GREATER_EQUAL),
-            "\r" | "\t" | " " => None,
+            "\r" | "\t" | " " => Some(TokenType::WHITESPACE),
             "\n" => Some(TokenType::LINE_BREAK),
             "\"" => Some(TokenType::STRING),
             "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => Some(TokenType::NUMBER),
             "" => Some(TokenType::EOF),
-            _ => Some(TokenType::ERROR)
+            _ => None,
+        };
+        if tt.is_some() { return tt };
+
+        // Try matching complex expressions if simple ones faile
+        if Scanner::is_beginning_identifier_char(c) {
+            return Some(TokenType::IDENTIFIER);
         }
+
+        // Return an error if nothing matches
+        Some(TokenType::ERROR)
     }
 }
 
@@ -184,10 +198,6 @@ impl Scanner {
                             self.add_token(lexeme, None);
                         }
                     }
-                    TokenType::ERROR => {
-                        let unexpected_char = c.to_string();
-                        self.add_error(ErrorType::UnexpectedCharacter(unexpected_char));
-                    }
                     TokenType::GREATER => {
                         if self.is_compound_token('=') {
                             self.add_token(TokenType::GREATER_EQUAL, None);
@@ -208,7 +218,7 @@ impl Scanner {
                     TokenType::SLASH => {
                         if self.is_compound_token('/') {
                             while !self.eof() && self.peek() != "\n" {
-                                self.current += 1; // Ignore comments
+                                self.advance(); // Ignore comments
                             }
                         } else {
                             self.add_token(lexeme, None);
@@ -216,10 +226,10 @@ impl Scanner {
                     }
                     TokenType::STRING => {
                         while !self.eof() && self.peek() != "\"" {
-                            self.current += 1;
+                            self.advance();
                         }
                         if !self.eof() {
-                            self.current += 1;
+                            self.advance();
                             self.add_token(lexeme, Some(Literal::String(self.substr(self.start + 1, self.current - 1))));
                         } else {
                             self.add_error(ErrorType::UnterminatedString(self.substr(self.start, self.current)));
@@ -241,11 +251,30 @@ impl Scanner {
                         }
                         self.add_token(lexeme, Some(Literal::Number(self.substr(self.start, self.current).parse::<f64>().unwrap())));
                     }
+                    TokenType::WHITESPACE => { } // ignore
+                    TokenType::IDENTIFIER => {
+                        while !self.eof() && Scanner::is_identifier_char(self.peek()) {
+                            self.advance();
+                        }
+                        self.add_token(TokenType::IDENTIFIER, Some(Literal::Identifier(self.substr(self.start, self.current).to_string())));
+                    }
+                    TokenType::ERROR => {
+                        let unexpected_char = self.source.chars().nth(self.start).unwrap().to_string();
+                        self.add_error(ErrorType::UnexpectedCharacter(unexpected_char));
+                    }
                     _ => self.add_token(lexeme, None)
                 }
             }
         }
         self.add_token(TokenType::EOF, None);
+    }
+
+    fn is_beginning_identifier_char(c: &str) -> bool {
+        (c >= "a" && c <= "z") || (c >= "A" && c <="Z") || c == "_"
+    }
+
+    fn is_identifier_char(c: &str) -> bool {
+        c.chars().nth(0).unwrap().is_alphanumeric() || Scanner::is_beginning_identifier_char(c)
     }
 
     fn substr(&self, start: usize, end: usize) -> String {
