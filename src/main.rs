@@ -14,6 +14,7 @@ enum Literal {
     String(String),
     Number(f64),
     Identifier(String),
+    Keyword(String),
     NULL
 }
 
@@ -23,6 +24,7 @@ impl Display for Literal {
             Literal::String(s) => write!(f, "{}", s),
             Literal::Number(n) => write!(f, "{:?}", n),
             Literal::Identifier(i) => write!(f, "null"),
+            Literal::Keyword(k) => write!(f, "null"),
             Literal::NULL => write!(f, "null"),
         }
     }
@@ -84,7 +86,23 @@ enum TokenType {
     STRING,
     NUMBER,
     IDENTIFIER,
-    WHITESPACE
+    WHITESPACE,
+    AND,
+    CLASS,
+    ELSE,
+    FALSE,
+    FOR,
+    FUN,
+    IF,
+    NIL,
+    OR,
+    PRINT,
+    RETURN,
+    SUPER,
+    THIS,
+    TRUE,
+    VAR,
+    WHILE,
 }
 
 static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
@@ -110,6 +128,22 @@ static TOKENS: LazyLock<HashMap<TokenType, &'static str>> = LazyLock::new(|| {
         (TokenType::GREATER_EQUAL, ">="),
         (TokenType::LINE_BREAK, ""),
         (TokenType::EOF, ""),
+        (TokenType::AND, "and"),
+        (TokenType::CLASS, "class"),
+        (TokenType::ELSE, "else"),
+        (TokenType::FALSE, "false"),
+        (TokenType::FOR, "for"),
+        (TokenType::FUN, "fun"),
+        (TokenType::IF, "if"),
+        (TokenType::NIL, "nil"),
+        (TokenType::OR, "or"),
+        (TokenType::PRINT, "print"),
+        (TokenType::RETURN, "return"),
+        (TokenType::SUPER, "super"),
+        (TokenType::THIS, "this"),
+        (TokenType::TRUE, "true"),
+        (TokenType::VAR, "var"),
+        (TokenType::WHILE, "while"),
     ])
 });
 
@@ -152,6 +186,28 @@ impl TokenType {
 
         // Return an error if nothing matches
         Some(TokenType::ERROR)
+    }
+
+    fn parse_keyword(token: &str) -> Option<TokenType> {
+        match token {
+            "and" => Some(TokenType::AND),
+            "class" => Some(TokenType::CLASS),
+            "else" => Some(TokenType::ELSE),
+            "false" => Some(TokenType::FALSE),
+            "for" => Some(TokenType::FOR),
+            "fun" => Some(TokenType::FUN),
+            "if" => Some(TokenType::IF),
+            "nil" => Some(TokenType::NIL),
+            "or" => Some(TokenType::OR),
+            "print" => Some(TokenType::PRINT),
+            "return" => Some(TokenType::RETURN),
+            "super" => Some(TokenType::SUPER),
+            "this" => Some(TokenType::THIS),
+            "true" => Some(TokenType::TRUE),
+            "var" => Some(TokenType::VAR),
+            "while" => Some(TokenType::WHILE),
+            _ => None
+        }
     }
 }
 
@@ -256,7 +312,12 @@ impl Scanner {
                         while !self.eof() && Scanner::is_identifier_char(self.peek()) {
                             self.advance();
                         }
-                        self.add_token(TokenType::IDENTIFIER, Some(Literal::Identifier(self.substr(self.start, self.current).to_string())));
+                        let word = self.substr(self.start, self.current).to_string();
+                        if let Some(keyword) = TokenType::parse_keyword(word.as_str()) {
+                            self.add_token(keyword, Some(Literal::Keyword(word)));
+                        } else {
+                            self.add_token(TokenType::IDENTIFIER, Some(Literal::Identifier(self.substr(self.start, self.current).to_string())));
+                        }
                     }
                     TokenType::ERROR => {
                         let unexpected_char = self.source.chars().nth(self.start).unwrap().to_string();
